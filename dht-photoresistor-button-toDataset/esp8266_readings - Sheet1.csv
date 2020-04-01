@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 Date,Event Name,Value1,Value2,Value3
 "November 18, 2019 at 08:44PM",esp8266_readings,1,204,22.5
 "November 18, 2019 at 08:45PM",esp8266_readings,1,208,22.4
@@ -3998,6 +3999,9 @@ Date,Event Name,Value1,Value2,Value3
 "November 21, 2019 at 03:56PM",esp8266_readings,0,890,18.00;49.00
 "November 21, 2019 at 03:57PM",esp8266_readings,0,890,18.00;50.00
 "November 21, 2019 at 03:58PM",esp8266_readings,0,897,18.00;49.00
+=======
+Date & Time,Event Name,Dig Button on/off,Photoresistor,Temp (celsius); Humidity
+>>>>>>> d0ba4516a9fa3be9153f28abeebff31f916936d8
 "November 21, 2019 at 03:59PM",esp8266_readings,0,896,18.00;50.00
 "November 21, 2019 at 04:00PM",esp8266_readings,0,898,18.00;50.00
 "November 21, 2019 at 04:01PM",esp8266_readings,0,907,18.00;49.00
