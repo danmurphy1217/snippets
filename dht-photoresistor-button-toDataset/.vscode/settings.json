@@ -1,0 +1,4 @@
+{
+    "python.pythonPath": "ml-models/bin/python3.7",
+    "git.ignoreLimitWarning": true
+}
