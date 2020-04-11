@@ -2,7 +2,13 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 from sklearn.svm import SVC
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
+import seaborn as sns
+import plotly.express as pl
+
 
 st.title("Support Vector Classifier for Predicting whether I am in my room or not")
 
@@ -124,5 +130,76 @@ for kern in kernels:
     accuracy_records["{}".format(kern)] = computeAccuracy("{}".format(kern))
 st.text("The kernel with the highest accuracy is: " + str(max(accuracy_records, key=accuracy_records.get)))
 
+"""
+**Now, test out the model for yourself:** \n
+First, go to the the sidebar \n
+Then, choose the model you want to run. Your results will appear below:
+"""
+
+hours = list(np.arange(1, 25, 1))
+
+model_choice = st.sidebar.selectbox(
+    "Select Model:",
+    ["KNN", "SVM", "Linear Regression", "Decision Tree"]
+    )
+def return_results(x, y, model):
+    x_train, x_test, y_train, y_test = train_test_split(x, y, test_size = .3)
+    accuracy_model = {}
+    accuracy_list = []
+    if model == "KNN":
+        knn = KNeighborsClassifier(n_neighbors = int(np.sqrt(c)))
+        knn.fit(x_train, y_train)
+        preds = knn.predict(x_test)
+        results = pd.DataFrame(
+            {
+                "Actual": y_test,
+                "Predicted": preds
+            }
+        )
+        fig = pl.bar(results, x="Actual", y="Predicted", color_discrete_sequence=['indianred']) 
+        fig.update_traces(marker_color='rgb(158,202,225)', marker_line_color='rgb(8,48,107)')
+        accuracy_model["{}".format(knn.__class__.__name__)] = round(knn.score(x_test, y_test), 2)
+        return accuracy_model, st.plotly_chart(fig)
+    elif model == "SVM":
+        svm = SVC(random_state=1234)
+        svm.fit(x_train, y_train)
+        preds = svm.predict(x_test)
+        results = pd.DataFrame(
+            {
+                "Actual": y_test,
+                "Predicted": preds
+            }
+        )
+        fig = pl.bar(results, x="Actual", y="Predicted", color_discrete_sequence=['indianred'])
+        fig.update_traces(marker_color='rgb(158,202,225)', marker_line_color='rgb(8,48,107)')       
+        accuracy_model["{}".format(svm.__class__.__name__)] = round(svm.score(x_test, y_test), 2)
+        return accuracy_model, st.plotly_chart(fig)
+    elif model == "Linear Regression":
+        reg = LinearRegression()
+        reg.fit(x_train, y_train)
+        preds = reg.predict(x_test)
+        results = pd.DataFrame(
+            {
+                "Actual": y_test,
+                "Predicted": preds
+            }
+        )
+        fig = pl.bar(results, x="Actual", y="Predicted", color_discrete_sequence=['indianred'], color="Actual")
+        fig.update_traces(marker_color='rgb(158,202,225)', marker_line_color='rgb(8,48,107)')
+        accuracy_model["{}".format(reg.__class__.__name__)] = round(reg.score(x_test, y_test), 2)
+        return accuracy_model, st.plotly_chart(fig)
+    elif model == "Decision Tree":
+        dt_clf = DecisionTreeClassifier(max_leaf_nodes=int(c/2), random_state=1234)
+        dt_clf.fit(x_train, y_train)
+        preds = dt_clf.predict(x_test)
+        results = pd.DataFrame({
+            "Actual":y_test,
+            "Predicted":preds
+        })
+        fig = pl.bar(results, x="Actual", y="Predicted", color_discrete_sequence=['indianred'])
+        fig.update_traces(marker_color='rgb(158,202,225)', marker_line_color='rgb(8,48,107)')
+        accuracy_model["{}".format(dt_clf.__class__.__name__)] = round(dt_clf.score(x_test, y_test), 2)
+        return accuracy_model, st.plotly_chart(fig)
 
 
+st.write(return_results(x, y, model_choice))
