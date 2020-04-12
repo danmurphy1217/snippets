@@ -1,6 +1,7 @@
 import streamlit as st
 import numpy as np
 import pandas as pd
+import pandas.plotting as pdplt
 from sklearn.svm import SVC
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.tree import DecisionTreeClassifier
@@ -30,7 +31,7 @@ The data used to predict whether I am in my room or not includes:
 4. **_One-hot-encoded hours (0-23)_** (used to incorporate time series into the model)
 """
 st.subheader("**_Part A. Pre-Clean_**")
-df = pd.read_csv("/Users/danielmurphy/Desktop/snippets/dht-photoresistor-button-toDataset/esp8266_readings - Sheet1.csv")
+df = pd.read_csv("esp8266_readings - Sheet1.csv")
 df = pd.DataFrame(df)
 df
 r, c = df.shape
@@ -121,7 +122,11 @@ if model == "K-Nearest Neighbors":
         "the number of jobs (-1 is recommended):",
         [1, -1]
     )
-    knn_clf = KNeighborsClassifier(n_neighbors=neighbors, algorithm=algo, n_jobs=n)
+    met = st.selectbox(
+        "Euclidean (2) or Manhattan Distance (1)? This is the power parameter for the Minkowski metric.",
+        ["1", "2"]
+    )
+    knn_clf = KNeighborsClassifier(n_neighbors=neighbors, algorithm=algo, n_jobs=n, p = int(met))
     knn_clf.fit(x_train, y_train)
     preds = knn_clf.predict(x_test)
     results = pd.DataFrame(
@@ -187,6 +192,36 @@ else:
     st.write("{}".format(model) + " is not available yet, coming soon (:")
 
 st.subheader("Lastly, choose the visualizations to build:")
+def return_visualization():
+    if model == "K-Nearest Neighbors":
+        viz_selector = st.selectbox(
+            "Choose your visualization:",
+            ["Parallel Coordinates (Multivariate Data Only)", "Test Accuracy Vs. # of Neighbors"]
+        )
+        if viz_selector == "Parallel Coordinates (Multivariate Data Only)":
+            return st.write("Coming Soon.")
+        elif viz_selector=="Test Accuracy Vs. # of Neighbors":
+            num_neighbors = st.selectbox(
+                "Choose Range for Number of Neighbors",
+                [[5, 10, 15, 20, 25], [10, 20,30, 40, 50]]
+            )
+            accuracy_scores = []
+            for i in num_neighbors:
+                knn_clf2 = KNeighborsClassifier(n_neighbors=i, algorithm=algo, n_jobs=n, p= int(met))
+                knn_clf2.fit(x_train, y_train)
+                preds = knn_clf2.predict(x_test)
+                score = knn_clf2.score(x_test, y_test)
+                accuracy_scores.append(score)
+            
+            fig = pl.line(x=num_neighbors, y=accuracy_scores, hover_name = accuracy_scores)
+            fig.update_layout(title="Accuracy vs. {} Neighbors".format(num_neighbors), xaxis_title = "Number of Neighbors", yaxis_title = "Accuracy (0 - 1.0)")
+            return st.plotly_chart(fig)
+
+
+
+
+
+return_visualization()
 
 
 # st.header("Part 3. Predict With Your Own Data: ")
