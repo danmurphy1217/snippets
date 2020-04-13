@@ -10,8 +10,7 @@ from sklearn.model_selection import train_test_split
 import seaborn as sns
 import plotly.express as pl
 from sklearn.metrics import confusion_matrix
-import altair as alt
-
+import matplotlib.pyplot as plt
 st.title("Support Vector Classifier for Predicting whether I am in my room or not")
 
 st.header("**Part 1. Data Pre-Clean vs. Post-Clean**")
@@ -99,8 +98,8 @@ st.text("Shape of Cleaned Data: {}".format(df.shape) + ". There are " + str(r) +
 
 
 st.header("**Part 2. Create Your Own Machine Learning Model:**")
-x = df.drop(columns=["Digital_Button", "Event_Name"]).values
-y = df['Digital_Button'].values
+x = df.drop(columns=["Digital_Button", "Event_Name"])
+y = df['Digital_Button']
 x_train, x_test, y_train, y_test = train_test_split(x, y, test_size = .3, random_state = 42)
 
 st.subheader("First, test out a variety of models: ")
@@ -196,10 +195,16 @@ def return_visualization():
     if model == "K-Nearest Neighbors":
         viz_selector = st.selectbox(
             "Choose your visualization:",
-            ["Parallel Coordinates (Multivariate Data Only)", "Test Accuracy Vs. # of Neighbors"]
+            ["Boxplot", "Test Accuracy Vs. # of Neighbors"]
         )
-        if viz_selector == "Parallel Coordinates (Multivariate Data Only)":
-            return st.write("Coming Soon.")
+        if viz_selector == "Boxplot":
+            fig, ([ax1, ax2], [ax3, ax4]) = plt.subplots(2, 2, figsize=[8, 6])
+            plt1 = sns.boxplot(data= df, y="Photoresistor", ax = ax1)
+            plt2 = sns.boxplot(data= df, y="Temp", ax=ax2)
+            plt3 = sns.boxplot(data= df, y="Humidity", ax=ax3)
+            plt4 = sns.boxplot(data=df, y="Digital_Button", ax=ax4)
+
+            return st.plotly_chart(fig)
         elif viz_selector=="Test Accuracy Vs. # of Neighbors":
             num_neighbors = st.selectbox(
                 "Choose Range for Number of Neighbors",
@@ -216,9 +221,6 @@ def return_visualization():
             fig = pl.line(x=num_neighbors, y=accuracy_scores, hover_name = accuracy_scores)
             fig.update_layout(title="Accuracy vs. {} Neighbors".format(num_neighbors), xaxis_title = "Number of Neighbors", yaxis_title = "Accuracy (0 - 1.0)")
             return st.plotly_chart(fig)
-
-
-
 
 
 return_visualization()
