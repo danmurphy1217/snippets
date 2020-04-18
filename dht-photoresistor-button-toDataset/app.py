@@ -5,7 +5,7 @@ import pandas.plotting as pdplt
 from sklearn.svm import SVC
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 import seaborn as sns
 import plotly.express as pl
@@ -127,10 +127,10 @@ if model == "K-Nearest Neighbors":
     )
     knn_clf = KNeighborsClassifier(n_neighbors=neighbors, algorithm=algo, n_jobs=n, p = int(met))
     knn_clf.fit(x_train, y_train)
-    preds = knn_clf.predict(x_test)
+    preds_knn = knn_clf.predict(x_test)
     results = pd.DataFrame(
        { "Actual": y_test,
-        "Predicted": preds
+        "Predicted": preds_knn
        }
     )
     score = knn_clf.score(x_test, y_test)
@@ -185,6 +185,35 @@ elif model == "Decision Tree":
     )
     score = dt_clf.score(x_test, y_test)
     st.write(score)
+elif model == "Logistic Regression":
+    pen = st.selectbox(
+        "Choose the penalty, which is used to specify the norm used in the penalization (for now, only l2 is supported)",
+        ["l2"]
+    )
+    rand_state = st.text_input(label="Enter the random state (strongly suggested for uniformity across models):", value="1234")
+    sol = st.selectbox(
+        "Choose the Algorithm to use in the optimization (default is lbfgs)",
+        ["lbfgs", "liblinear", "sag", "saga"]
+    )
+    warm = st.selectbox(
+        "If true, reuse the solution of the previous call to fit as initialization. Otherwise, erase previous.",
+        ["True", "False"]
+    )
+    jobs = st.selectbox(
+        "Number of jobs (if -1, all CPU cores used.",
+        [-1, 1]
+    )
+    log_clf = LogisticRegression(penalty=pen, random_state=int(rand_state), solver= sol, warm_start=warm, n_jobs=jobs)
+    log_clf.fit(x_train, y_train)
+    y_preds_log = log_clf.predict(x_test)
+    results = pd.DataFrame(
+        {
+            "Predicted": y_preds_log,
+            "Actual": y_test
+        }
+    )
+    score = log_clf.score(x_test, y_test)
+    st.write(score)
 else:
     unknown_input = []
     unknown_input.append(model)
@@ -195,7 +224,7 @@ def return_visualization():
     if model == "K-Nearest Neighbors":
         viz_selector = st.selectbox(
             "Choose your visualization:",
-            ["Boxplot", "Test Accuracy Vs. # of Neighbors"]
+            ["Boxplot", "Test Accuracy Vs. # of Neighbors", "Confusion Matrix"]
         )
         if viz_selector == "Boxplot":
             fig, ([ax1, ax2], [ax3, ax4]) = plt.subplots(2, 2, figsize=[8, 6])
@@ -221,113 +250,23 @@ def return_visualization():
             fig = pl.line(x=num_neighbors, y=accuracy_scores, hover_name = accuracy_scores)
             fig.update_layout(title="Accuracy vs. {} Neighbors".format(num_neighbors), xaxis_title = "Number of Neighbors", yaxis_title = "Accuracy (0 - 1.0)")
             return st.plotly_chart(fig)
+        elif viz_selector=="Confusion Matrix":
+            c_mat = pd.crosstab(preds_knn, y_test, rownames=["True"], colnames=["False"])
+            st.write(c_mat)
+            fig = pl.imshow(c_mat)
+            return st.plotly_chart(fig)
+
+    if model == "Logistic Regression":
+        viz_selector = st.selectbox(
+            "Choose your visualization for {}: ".format(model),
+            ["Confusion Matrix"]
+        )
+        c_mat = pd.crosstab(y_preds_log, y_test, rownames=["True"], colnames=["False"])
+        st.write(c_mat)
+        fig = plt.subplots(1, 1, figsize=[8, 6])
+        fig = pl.imshow(confusion_matrix(y_test, y_preds_log))
+        return st.plotly_chart(fig)
 
 
 return_visualization()
 
-
-# st.header("Part 3. Predict With Your Own Data: ")
-# x = df.drop(columns=["Digital_Button", "Event_Name"]).values
-# y = df['Digital_Button'].values
-# x_train, x_test, y_train, y_test = train_test_split(x, y, test_size = .3, random_state = 42)
-
-
-# kernels = ["linear", "poly", 'rbf', 'sigmoid']
-# def computeAccuracy(kern):
-#     try:
-#         svm_clf = SVC(kernel = kern)
-#         svm_clf.fit(x_train, y_train)
-#         y_preds = svm_clf.predict(x_test)
-#         results = pd.DataFrame({
-#             "Actual": y_test,
-#             "Predicted": y_preds
-#         })
-#     except:
-#        svm_clf = SVC(kernel = kern)
-#        svm_clf.fit(x_train, y_train)
-#        y_preds = svm_clf.predict(x_test)
-#        return "Error with model, returning linear accuracy: {}".format(svm_clf.score(x_test, y_test))
-#     return svm_clf.score(x_test, y_test), pd.DataFrame(results)
-# option = st.selectbox( 
-#     "Which Kernel Would You Like to Choose for the Model?",
-#     kernels
-# )
-# st.text("The accuracy of your model is: {}".format(computeAccuracy("{}".format(option))))
-# accuracy_records = {}
-# for kern in kernels:
-#     accuracy_records["{}".format(kern)] = computeAccuracy("{}".format(kern))
-# st.text("The kernel with the highest accuracy is: " + str(max(accuracy_records, key=accuracy_records.get)))
-
-# """
-# **Now, test out the model for yourself:** \n
-# First, go to the the sidebar \n
-# Then, choose the model you want to run. Your results will appear below:
-# """
-
-# hours = list(np.arange(1, 25, 1))
-
-# model_choice = st.sidebar.selectbox(
-#     "Select Model:",
-#     ["KNN", "SVM", "Linear Regression", "Decision Tree"]
-#     )
-# def return_results(x, y, model):
-#     x_train, x_test, y_train, y_test = train_test_split(x, y, test_size = .3)
-#     accuracy_model = {}
-#     accuracy_list = []
-#     if model == "KNN":
-#         knn = KNeighborsClassifier(n_neighbors = int(np.sqrt(c)))
-#         knn.fit(x_train, y_train)
-#         preds = knn.predict(x_test)
-#         results = pd.DataFrame(
-#             {
-#                 "Actual": y_test,
-#                 "Predicted": preds
-#             }
-#         )
-#         fig = sns.heatmap(data=results, linecolor="black", vmin=0, vmax=1, cmap="Dark3")
-#         # fig.update_traces(marker_color='rgb(158,202,225)', marker_line_color='rgb(8,48,107)')
-#         accuracy_model["{}".format(knn.__class__.__name__)] = round(knn.score(x_test, y_test), 2)
-#         return accuracy_model, st.pyplot()
-#     elif model == "SVM":
-#         svm = SVC(random_state=1234)
-#         svm.fit(x_train, y_train)
-#         preds = svm.predict(x_test)
-#         results = pd.DataFrame(
-#             {
-#                 "Actual": y_test,
-#                 "Predicted": preds
-#             }
-#         )
-#         fig = pl.bar(results, x="Actual", y="Predicted", color_discrete_sequence=['indianred'])
-#         fig.update_traces(marker_color='rgb(158,202,225)', marker_line_color='rgb(8,48,107)')       
-#         accuracy_model["{}".format(svm.__class__.__name__)] = round(svm.score(x_test, y_test), 2)
-#         return accuracy_model, st.plotly_chart(fig)
-#     elif model == "Linear Regression":
-#         reg = LinearRegression()
-#         reg.fit(x_train, y_train)
-#         preds = reg.predict(x_test)
-#         results = pd.DataFrame(
-#             {
-#                 "Actual": y_test,
-#                 "Predicted": preds
-#             }
-#         )
-#         fig = pl.bar(results, x="Actual", y="Predicted", color_discrete_sequence=['indianred'], color="Actual")
-#         fig.update_traces(marker_color='rgb(158,202,225)', marker_line_color='rgb(8,48,107)')
-#         accuracy_model["{}".format(reg.__class__.__name__)] = round(reg.score(x_test, y_test), 2)
-#         return accuracy_model, st.plotly_chart(fig)
-#     elif model == "Decision Tree":
-#         dt_clf = DecisionTreeClassifier(max_leaf_nodes=int(c/2), random_state=1234)
-#         dt_clf.fit(x_train, y_train)
-#         preds = dt_clf.predict(x_test)
-#         results = pd.DataFrame({
-#             "Actual":y_test,
-#             "Predicted":preds
-#         })
-#         fig = pl.bar(results, x="Actual", y="Predicted", color_discrete_sequence=['indianred'])
-#         fig.update_traces(marker_color='rgb(158,202,225)', marker_line_color='rgb(8,48,107)')
-#         accuracy_model["{}".format(dt_clf.__class__.__name__)] = round(dt_clf.score(x_test, y_test), 2)
-#         return accuracy_model, st.plotly_chart(fig)
-
-
-# st.write(return_results(x, y, model_choice))
