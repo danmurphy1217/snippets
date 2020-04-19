@@ -11,7 +11,13 @@ import seaborn as sns
 import plotly.express as pl
 from sklearn.metrics import confusion_matrix
 import matplotlib.pyplot as plt
-st.title("Support Vector Classifier for Predicting whether I am in my room or not")
+import webbrowser
+
+st.title("Machine Learning Models predicting on self-collected data")
+url = "https://docs.google.com/spreadsheets/d/1F-UPZf3je1x4M8ryp34OCe29E-CagCrUn9mFzsyfmJE/edit?usp=sharing"
+st.write("A sample of the data can be found here: \n")
+if st.button('Check out the dataset'):
+    webbrowser.open_new_tab(url)
 
 st.header("**Part 1. Data Pre-Clean vs. Post-Clean**")
 """
@@ -32,7 +38,7 @@ The data used to predict whether I am in my room or not includes:
 st.subheader("**_Part A. Pre-Clean_**")
 df = pd.read_csv("esp8266_readings - Sheet1.csv")
 df = pd.DataFrame(df)
-df
+st.dataframe(df.style.highlight_max(axis=0))
 r, c = df.shape
 st.text("Shape of Initial Data: {}".format(df.shape) + ". There are " + str(r) + " rows and " + str(c) + " columns.")
 """
@@ -83,21 +89,21 @@ cols = ['Hour_1', 'Hour_2', 'Hour_3', 'Hour_4', 'Hour_5', 'Hour_6', 'Hour_7', 'H
 # now, use the reorganized column names to reorganize your columns
 time_df = time_df[cols]
 #rearrange indeces and concat time to initial df
-df.index = np.arange(0, len(df))
+df.index = np.arange(0, r-9)
 df = pd.concat([df, time_df], axis =1)
 #drop unnecessary columns
 df = df.drop(columns=['Date'])
 
 #normalization
-df['Photoresistor'] = df['Photoresistor']/df['Photoresistor'].max()
+df['Photoresistor'] = df['Photoresistor'].astype(int)/df['Photoresistor'].max().astype(int)
 df['Temp'] = df['Temp'].astype(float)/df['Temp'].astype(float).max()
 df['Humidity'] = df['Humidity'].astype(float)/df['Humidity'].astype(float).max()
-df
 r, c = df.shape
+st.dataframe(df)
 st.text("Shape of Cleaned Data: {}".format(df.shape) + ". There are " + str(r) + " rows and " + str(c) + " columns.")
 
 
-st.header("**Part 2. Create Your Own Machine Learning Model:**")
+st.header("**Part 2. Test out the Machine Learning Models:**")
 x = df.drop(columns=["Digital_Button", "Event_Name"])
 y = df['Digital_Button']
 x_train, x_test, y_train, y_test = train_test_split(x, y, test_size = .3, random_state = 42)
@@ -150,10 +156,10 @@ elif model == "Support Vector Machine":
     )
     svc_clf = SVC(kernel= kern, degree = int(deg), random_state= int(rand))
     svc_clf.fit(x_train, y_train)
-    y_preds = svc_clf.predict(x_test)
+    y_preds_svm = svc_clf.predict(x_test)
     results = pd.DataFrame({
         "Acutal": y_test,
-        "Predicted": y_preds
+        "Predicted": y_preds_svm
     })
     score = svc_clf.score(x_test, y_test)
     st.write(score)
@@ -176,11 +182,11 @@ elif model == "Decision Tree":
     )
     dt_clf = DecisionTreeClassifier(criterion=criteria, splitter=split, max_features=feats, random_state=int(rand))
     dt_clf.fit(x_train, y_train)
-    preds= dt_clf.predict(x_test)
+    y_preds_dt = dt_clf.predict(x_test)
     results = pd.DataFrame(
         {
             "Actual": y_test,
-            "Predicted": preds
+            "Predicted": y_preds_dt
         }
     )
     score = dt_clf.score(x_test, y_test)
@@ -224,7 +230,7 @@ def return_visualization():
     if model == "K-Nearest Neighbors":
         viz_selector = st.selectbox(
             "Choose your visualization:",
-            ["Boxplot", "Test Accuracy Vs. # of Neighbors", "Confusion Matrix"]
+            ["Test Accuracy Vs. # of Neighbors", "Confusion Matrix"]
         )
         if viz_selector == "Boxplot":
             fig, ([ax1, ax2], [ax3, ax4]) = plt.subplots(2, 2, figsize=[8, 6])
@@ -248,12 +254,33 @@ def return_visualization():
                 accuracy_scores.append(score)
             
             fig = pl.line(x=num_neighbors, y=accuracy_scores, hover_name = accuracy_scores)
-            fig.update_layout(title="Accuracy vs. {} Neighbors".format(num_neighbors), xaxis_title = "Number of Neighbors", yaxis_title = "Accuracy (0 - 1.0)")
+            fig.update_layout(title="Accuracy for {} Neighbors".format(num_neighbors), xaxis_title = "Number of Neighbors", yaxis_title = "Accuracy (0 - 1.0)")
             return st.plotly_chart(fig)
         elif viz_selector=="Confusion Matrix":
             c_mat = pd.crosstab(preds_knn, y_test, rownames=["True"], colnames=["False"])
             st.write(c_mat)
-            fig = pl.imshow(c_mat)
+            fig = pl.imshow(c_mat, 
+            labels=dict(x="Testing Data", y="Predicted Data"),
+                    x=['False', 'True'],
+                    y=['False', 'True']
+            )
+            fig.update_xaxes(side = "top")
+            return st.plotly_chart(fig)
+    if model == "Support Vector Machine":
+        viz_selector = st.selectbox(
+            "Choose your visualization for {}: ".format(model),
+            ["Confusion Matrix"]
+        )
+        if viz_selector == "Confusion Matrix":
+            c_mat = pd.crosstab(y_preds_svm, y_test, colnames= ['True'], rownames=['False'])
+            st.write(c_mat)
+            fig = pl.imshow(c_mat, 
+            labels=dict(x="Testing Data", y="Predicted Data"),
+                    x=['False', 'True'],
+                    y=['False', 'True']
+            )
+            fig.update_xaxes(side = "top")
+
             return st.plotly_chart(fig)
 
     if model == "Logistic Regression":
@@ -264,9 +291,67 @@ def return_visualization():
         c_mat = pd.crosstab(y_preds_log, y_test, rownames=["True"], colnames=["False"])
         st.write(c_mat)
         fig = plt.subplots(1, 1, figsize=[8, 6])
-        fig = pl.imshow(confusion_matrix(y_test, y_preds_log))
+        fig = pl.imshow(confusion_matrix(y_test, y_preds_log),
+            labels=dict(x="Testing Data", y="Predicted Data"),
+                    x=['False', 'True'],
+                    y=['False', 'True']
+            )
+        fig.update_xaxes(side = "top")
         return st.plotly_chart(fig)
-
+    if model == "Decision Tree":
+        viz_selector = st.selectbox(
+            "Choose your visualization for {}: ".format(model),
+            ["Confusion Matrix"]
+        )
+        if viz_selector == "Confusion Matrix":
+            c_mat = pd.crosstab(y_preds_dt, y_test, rownames=['True'], colnames=['False'])
+            st.write(c_mat)
+            fig = pl.imshow(c_mat, 
+            labels=dict(x="Testing Data", y="Predicted Data"),
+                    x=['False', 'True'],
+                    y=['False', 'True']
+            )
+            fig.update_xaxes(side = "top")
+        return st.plotly_chart(fig)
 
 return_visualization()
 
+st.header("**Part 3. Input your own data and check out the results:**")
+st.write("It is recommended you look at the values in the cleaned dataframe to aid in helping you select your inputs.")
+
+st.subheader("First, Input your data:")
+
+
+photo_val = st.text_input("Photoresistor Value: ", value=".4541")
+temp_val = st.text_input("Temperature Value: ", value='.7368')
+humid_val = st.text_input("Humidity Value: ", value='.8923')
+hour_num = st.selectbox(
+    "Hour Value: ",
+    [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+)
+hour_timeframe = st.selectbox(
+    "AM or PM?",
+    ["AM", "PM"]
+)
+st.subheader("Now, select your model:")
+st.selectbox(
+    "Model Selector:",
+    ["K-Nearest Neighbors", "Support Vector Machine", "Decision Tree", "Logistic Regression"]
+)
+def hourConverterTwo(timeframe, hour):
+    if timeframe == "PM":
+        final_time = int(hour) + 12
+        return final_time
+    else:
+        return hour
+# st.write(hourConverterTwo(str(hour_timeframe), hour_num))
+
+def buildModel(model_name, photoresistor_data, temp_data, humidity_data, hour_data):
+    if model_name == "K-Nearest Neighbors":
+        print(model_name)
+    elif model_name=="Support Vector Machine":
+        print(model_name)
+    elif model_name=="Decision Tree":
+        print(model_name)
+    elif model_name=="Logistic Regression":
+        print(model_name)
