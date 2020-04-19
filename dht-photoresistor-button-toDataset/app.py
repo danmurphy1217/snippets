@@ -226,6 +226,7 @@ else:
     st.write("{}".format(model) + " is not available yet, coming soon (:")
 
 st.subheader("Lastly, choose the visualizations to build:")
+
 def return_visualization():
     if model == "K-Nearest Neighbors":
         viz_selector = st.selectbox(
@@ -259,11 +260,10 @@ def return_visualization():
         elif viz_selector=="Confusion Matrix":
             c_mat = pd.crosstab(preds_knn, y_test, rownames=["True"], colnames=["False"])
             st.write(c_mat)
-            fig = pl.imshow(c_mat, 
-            labels=dict(x="Testing Data", y="Predicted Data"),
-                    x=['False', 'True'],
-                    y=['False', 'True']
-            )
+            fig = pl.imshow(c_mat, labels=dict(
+                x = 'Testing Data',
+                y = 'Predicted Data'
+            ), x= ["False", "True"], y=["False", "True"])
             fig.update_xaxes(side = "top")
             return st.plotly_chart(fig)
     if model == "Support Vector Machine":
@@ -291,8 +291,7 @@ def return_visualization():
         c_mat = pd.crosstab(y_preds_log, y_test, rownames=["True"], colnames=["False"])
         st.write(c_mat)
         fig = plt.subplots(1, 1, figsize=[8, 6])
-        fig = pl.imshow(confusion_matrix(y_test, y_preds_log),
-            labels=dict(x="Testing Data", y="Predicted Data"),
+        fig = pl.imshow(confusion_matrix(y_test, y_preds_log), labels=dict(x="Testing Data", y="Predicted Data"),
                     x=['False', 'True'],
                     y=['False', 'True']
             )
@@ -306,14 +305,14 @@ def return_visualization():
         if viz_selector == "Confusion Matrix":
             c_mat = pd.crosstab(y_preds_dt, y_test, rownames=['True'], colnames=['False'])
             st.write(c_mat)
-            fig = pl.imshow(c_mat, 
+            fig = pl.imshow(c_mat
+            , 
             labels=dict(x="Testing Data", y="Predicted Data"),
                     x=['False', 'True'],
                     y=['False', 'True']
             )
             fig.update_xaxes(side = "top")
         return st.plotly_chart(fig)
-
 return_visualization()
 
 st.header("**Part 3. Input your own data and check out the results:**")
@@ -334,24 +333,14 @@ hour_timeframe = st.selectbox(
     ["AM", "PM"]
 )
 st.subheader("Now, select your model:")
-st.selectbox(
+model_selector = st.selectbox(
     "Model Selector:",
     ["K-Nearest Neighbors", "Support Vector Machine", "Decision Tree", "Logistic Regression"]
 )
 def hourConverterTwo(timeframe, hour):
     if timeframe == "PM":
         final_time = int(hour) + 12
-        return final_time
+        return int(final_time)
     else:
-        return hour
-# st.write(hourConverterTwo(str(hour_timeframe), hour_num))
-
-def buildModel(model_name, photoresistor_data, temp_data, humidity_data, hour_data):
-    if model_name == "K-Nearest Neighbors":
-        print(model_name)
-    elif model_name=="Support Vector Machine":
-        print(model_name)
-    elif model_name=="Decision Tree":
-        print(model_name)
-    elif model_name=="Logistic Regression":
-        print(model_name)
+        return int(hour)
+st.write(hourConverterTwo(str(hour_timeframe), hour_num))
