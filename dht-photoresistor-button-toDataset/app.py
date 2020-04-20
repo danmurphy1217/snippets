@@ -1,3 +1,4 @@
+from plotly.graph_objs import *
 import streamlit as st
 import numpy as np
 import pandas as pd
@@ -6,9 +7,10 @@ from sklearn.svm import SVC
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, GridSearchCV
 import seaborn as sns
 import plotly.express as pl
+from plotly.subplots import make_subplots
 from sklearn.metrics import confusion_matrix
 import matplotlib.pyplot as plt
 import webbrowser
@@ -24,16 +26,16 @@ st.header("**Part 1. Data Pre-Clean vs. Post-Clean**")
 The data used to predict whether I am in my room or not includes: 
 """
 """
-1. **_Normalized photoresistor_** data that reads the amount of light in my room
+1. **_Photoresistor_** data that reports the amount of light in the surrounding area (the higher the luminosity, the lower the resistance)
 """
 """
-2. **_Normalized DHT-sensor_** data that reads the temperature and humidity in my room
+2. **_DHT-sensor_** data that reports the temperature and humidity in the room
 """
 """
 3. **_Digital sensor_** data (1's and 0's... 1 = im in my room, 0 = im not in my room) and 
 """
 """
-4. **_One-hot-encoded hours (0-23)_** (used to incorporate time series into the model)
+4. **_Dates_** (used to incorporate time series into the model)
 """
 st.subheader("**_Part A. Pre-Clean_**")
 df = pd.read_csv("esp8266_readings - Sheet1.csv")
@@ -44,9 +46,9 @@ st.text("Shape of Initial Data: {}".format(df.shape) + ". There are " + str(r) +
 """
 Kind of messy... we need to: \n
 1. Rename Columns. What are Value1? Value2? etc... \n
-2. By taking a look at Value3, we see that the first 9 rows are different from the following 5382. We'll want to remove these or determine a placeholder for the missing values that is representative of the data we are working with. \n
+2. By taking a look at Value3, we see that the first 9 rows are different from the following 5382. We'll want to remove these or determine a representative placeholder for the missing values. \n
 3. Normalize columns 3 (Value1), 4 (Value2), and 5 (Value3) \n
-3. Split the "Date" column at 'at' and retrieve the hour for each row (then we can one-hot-encode the hour values)
+3. Split the "Date" column at 'at' and retrieve the hour for each row. Then, we will one-hot-encode the hour values.
 """
 
 st.subheader("**_Part B. Post-Clean_**")
@@ -85,7 +87,7 @@ time_df = time_df.rename(columns={0: 'Hour'})
 time_df = pd.get_dummies(time_df.astype(str))
 cols = time_df.columns.tolist() # get name of columns in a list
 # now, reorganize those names 
-cols = ['Hour_1', 'Hour_2', 'Hour_3', 'Hour_4', 'Hour_5', 'Hour_6', 'Hour_7', 'Hour_8', 'Hour_9', 'Hour_10', 'Hour_11', 'Hour_12', 'Hour_13', 'Hour_14', 'Hour_15', 'Hour_16', 'Hour_17', 'Hour_18', 'Hour_19', 'Hour_20', 'Hour_21', 'Hour_22', 'Hour_23', 'Hour_23']
+cols = ['Hour_1', 'Hour_2', 'Hour_3', 'Hour_4', 'Hour_5', 'Hour_6', 'Hour_7', 'Hour_8', 'Hour_9', 'Hour_10', 'Hour_11', 'Hour_12', 'Hour_13', 'Hour_14', 'Hour_15', 'Hour_16', 'Hour_17', 'Hour_18', 'Hour_19', 'Hour_20', 'Hour_21', 'Hour_22', 'Hour_23', 'Hour_24']
 # now, use the reorganized column names to reorganize your columns
 time_df = time_df[cols]
 #rearrange indeces and concat time to initial df
@@ -103,35 +105,85 @@ st.dataframe(df)
 st.text("Shape of Cleaned Data: {}".format(df.shape) + ". There are " + str(r) + " rows and " + str(c) + " columns.")
 
 
-st.header("**Part 2. Test out the Machine Learning Models:**")
+st.header("**Part 2. Use and Analyze Various Machine Learning Models:**")
 x = df.drop(columns=["Digital_Button", "Event_Name"])
 y = df['Digital_Button']
 x_train, x_test, y_train, y_test = train_test_split(x, y, test_size = .3, random_state = 42)
 
-st.subheader("First, test out a variety of models: ")
+st.subheader("First, Choose Your Model: ")
 model = st.selectbox(
     "choose your model:",
-    ["K-Nearest Neighbors", "Support Vector Machine", "Decision Tree", "Logistic Regression"]
+    ["K-Nearest Neighbors", "Support Vector Classifier", "Decision Tree", "Logistic Regression"]
     )
-st.subheader("Second, choose your parameters:")
+st.subheader("Second, Choose Your Parameters:")
+st.text("If you need help, after selecting your model click here: ")
+if st.button("Run a Grid Search"):
+    if model == "K-Nearest Neighbors":
+        param_grid = {
+            "n_neighbors" : [5, 10, 15],
+            "weights" : ['uniform', 'distance'],
+            'algorithm' : ['auto', 'ball_tree', 'kd_tree', 'brue']
+        }
+        gs_KNN = GridSearchCV(estimator=KNeighborsClassifier(), param_grid=param_grid, scoring='accuracy', cv=5, n_jobs=-1)
+        gs_KNN.fit(x_train, y_train)
+        best_parameters = gs_KNN.best_params_
+        st.write("The parameters that lead to the highest accuracy are: ")
+        st.table(pd.DataFrame(best_parameters, index=[0]))
+
+    elif model == "Support Vector Classifier":
+        param_grid = {
+            'kernel':['linear', 'poly', 'rbf', 'sigmoid'],
+            'degree': [2, 4, 6, 8],
+            'gamma': ['scale', 'auto']
+
+        }
+        gs_SVC = GridSearchCV(estimator=SVC(), param_grid=param_grid, scoring="accuracy", cv=5, n_jobs=-1)
+        gs_SVC.fit(x_train, y_train)
+        best_parameters = gs_SVC.best_params_
+        st.write("The parameters that lead to the highest accuracy are: ")
+        st.table(pd.DataFrame(best_parameters, index=[0]))
+
+    elif model == "Decision Tree":
+        param_grid = {
+            'criterion':['gini', 'entropy'],
+            'splitter':['best', 'random'],
+            'max_features': ['auto', 'sqrt', 'log2']
+        }
+        gs_DT = GridSearchCV(estimator= DecisionTreeClassifier(), param_grid= param_grid, scoring="accuracy")
+        gs_DT.fit(x_train, y_train)
+        best_parameters = gs_DT.best_params_
+        st.write("The parameters that lead to the highest accuracy are: ")
+        st.table(pd.DataFrame(best_parameters, index=[0]))
+
+    elif model == "Logistic Regression":
+        param_grid = {
+            'penalty':['l1', 'l2'],
+            'solver':['lbfgs', 'liblinear', 'sag', 'saga'],
+            'warm_start':["False", "True"],
+            'max_iter':[50, 100, 150, 200]
+
+        }
+        gs_LOG = GridSearchCV(estimator = LogisticRegression(), param_grid=param_grid, scoring='accuracy')
+        gs_LOG.fit(x_train, y_train)
+        best_parameters = gs_LOG.best_params_
+        st.write("The parameters that lead to the highest accuracy are: ")
+        st.table(pd.DataFrame(best_parameters, index=[0]))
+
+
 if model == "K-Nearest Neighbors":
-    neighbors = st.selectbox(
-        "number of neighbors to use:",
-        [5, 10, 15, 20, 25]
-    )
     algo = st.selectbox(
-        "the algorithm you want to use to compute the nearest neighbors: ",
+        "Algorithm to computer nearest neighbor: ",
         ["ball_tree", "kd_tree", "brute", "auto"]
     )
-    n = st.selectbox(
-        "the number of jobs (-1 is recommended):",
-        [1, -1]
+    neighbors = st.selectbox(
+        "Number of Neighbors to use:",
+        [5, 10, 15, 20, 25]
     )
-    met = st.selectbox(
-        "Euclidean (2) or Manhattan Distance (1)? This is the power parameter for the Minkowski metric.",
-        ["1", "2"]
+    w = st.selectbox(
+        "Weight function",
+        ["uniform", "distance"]
     )
-    knn_clf = KNeighborsClassifier(n_neighbors=neighbors, algorithm=algo, n_jobs=n, p = int(met))
+    knn_clf = KNeighborsClassifier(n_neighbors=neighbors, algorithm=algo, n_jobs=-1, weights=w)
     knn_clf.fit(x_train, y_train)
     preds_knn = knn_clf.predict(x_test)
     results = pd.DataFrame(
@@ -141,46 +193,44 @@ if model == "K-Nearest Neighbors":
     )
     score = knn_clf.score(x_test, y_test)
     st.write(score)
-elif model == "Support Vector Machine":
+elif model == "Support Vector Classifier":
+    deg = st.selectbox(
+        "Degree of Polynomial: ",
+        ["2","3", "4", "5", "6"]
+    )
+    gam = st.selectbox(
+        "Gamma, the Kernel Coefficient",
+        ["scale", "auto"]
+    )
     kern = st.selectbox(
-        "the kernel type you want to be used in the algorithm:",
+        "Kernel Type used in Algorithm:",
         ["linear", "poly", "rbf", "sigmoid"]
     )
-    deg = st.selectbox(
-        "the degree of the polynomial kernel function (default = 3): ",
-        ["2", "3", "4"]
-    )
-    rand = st.text_input(
-        "set a random state (strongly recommended... suggestions are 42 or 1234)",
-        value= "42"
-    )
-    svc_clf = SVC(kernel= kern, degree = int(deg), random_state= int(rand))
+
+    svc_clf = SVC(kernel= kern, degree = int(deg), random_state= 42, gamma=gam)
     svc_clf.fit(x_train, y_train)
     y_preds_svm = svc_clf.predict(x_test)
     results = pd.DataFrame({
-        "Acutal": y_test,
+        "Actual": y_test,
         "Predicted": y_preds_svm
     })
     score = svc_clf.score(x_test, y_test)
     st.write(score)
 elif model == "Decision Tree":
     criteria =st.selectbox(
-        "the function you want to use to measure the quality of a split:",
+        "Function to measure the split quality:",
         ["gini", "entropy"]
     )
-    split = st.selectbox(
-        "the strategy used to choose the split at each node:",
-        ["best", "random"]
-    )
     feats = st.selectbox(
-        "the number of features to consider when looking for the best split:",
+        "Max Features considered for best split:",
         ["auto", "sqrt", "log2", None]
     )
-    rand = st.text_input(
-        "set a random state (strongly recommended... suggestions are 42 or 1234)",
-        value = "42"
+    split = st.selectbox(
+        "Splitter (the strategy used to choose the split at each node):",
+        ["best", "random"]
     )
-    dt_clf = DecisionTreeClassifier(criterion=criteria, splitter=split, max_features=feats, random_state=int(rand))
+
+    dt_clf = DecisionTreeClassifier(criterion=criteria, splitter=split, max_features=feats, random_state=42)
     dt_clf.fit(x_train, y_train)
     y_preds_dt = dt_clf.predict(x_test)
     results = pd.DataFrame(
@@ -192,24 +242,23 @@ elif model == "Decision Tree":
     score = dt_clf.score(x_test, y_test)
     st.write(score)
 elif model == "Logistic Regression":
-    pen = st.selectbox(
-        "Choose the penalty, which is used to specify the norm used in the penalization (for now, only l2 is supported)",
-        ["l2"]
+    iters = st.selectbox(
+        "Max iterations for solvers to converge: ",
+        [50, 100, 150, 200]
     )
-    rand_state = st.text_input(label="Enter the random state (strongly suggested for uniformity across models):", value="1234")
+    pen = st.selectbox(
+        "Penalty (l1 or l2)",
+        ["l2", "l1"]
+    )
     sol = st.selectbox(
-        "Choose the Algorithm to use in the optimization (default is lbfgs)",
+        "Algorithm to use in the optimization",
         ["lbfgs", "liblinear", "sag", "saga"]
     )
     warm = st.selectbox(
-        "If true, reuse the solution of the previous call to fit as initialization. Otherwise, erase previous.",
+        "Warm Start (true -> reuse solution of the previous call to fit as initialization)",
         ["True", "False"]
     )
-    jobs = st.selectbox(
-        "Number of jobs (if -1, all CPU cores used.",
-        [-1, 1]
-    )
-    log_clf = LogisticRegression(penalty=pen, random_state=int(rand_state), solver= sol, warm_start=warm, n_jobs=jobs)
+    log_clf = LogisticRegression(penalty=pen, random_state=42, solver= sol, warm_start=warm, n_jobs=-1, max_iter = iters)
     log_clf.fit(x_train, y_train)
     y_preds_log = log_clf.predict(x_test)
     results = pd.DataFrame(
@@ -233,22 +282,22 @@ def return_visualization():
             "Choose your visualization:",
             ["Test Accuracy Vs. # of Neighbors", "Confusion Matrix"]
         )
-        if viz_selector == "Boxplot":
-            fig, ([ax1, ax2], [ax3, ax4]) = plt.subplots(2, 2, figsize=[8, 6])
-            plt1 = sns.boxplot(data= df, y="Photoresistor", ax = ax1)
-            plt2 = sns.boxplot(data= df, y="Temp", ax=ax2)
-            plt3 = sns.boxplot(data= df, y="Humidity", ax=ax3)
-            plt4 = sns.boxplot(data=df, y="Digital_Button", ax=ax4)
+        # if viz_selector == "Boxplot":
+        #     fig, ([ax1, ax2], [ax3, ax4]) = plt.subplots(2, 2, figsize=[8, 6])
+        #     plt1 = sns.boxplot(data= df, y="Photoresistor", ax = ax1)
+        #     plt2 = sns.boxplot(data= df, y="Temp", ax=ax2)
+        #     plt3 = sns.boxplot(data= df, y="Humidity", ax=ax3)
+        #     plt4 = sns.boxplot(data=df, y="Digital_Button", ax=ax4)
 
-            return st.plotly_chart(fig)
-        elif viz_selector=="Test Accuracy Vs. # of Neighbors":
+        #     return st.plotly_chart(fig)
+        if viz_selector=="Test Accuracy Vs. # of Neighbors":
             num_neighbors = st.selectbox(
                 "Choose Range for Number of Neighbors",
                 [[5, 10, 15, 20, 25], [10, 20,30, 40, 50]]
             )
             accuracy_scores = []
             for i in num_neighbors:
-                knn_clf2 = KNeighborsClassifier(n_neighbors=i, algorithm=algo, n_jobs=n, p= int(met))
+                knn_clf2 = KNeighborsClassifier(n_neighbors=i, algorithm=algo, n_jobs=-1, weights=w)
                 knn_clf2.fit(x_train, y_train)
                 preds = knn_clf2.predict(x_test)
                 score = knn_clf2.score(x_test, y_test)
@@ -266,10 +315,10 @@ def return_visualization():
             ), x= ["False", "True"], y=["False", "True"])
             fig.update_xaxes(side = "top")
             return st.plotly_chart(fig)
-    if model == "Support Vector Machine":
+    if model == "Support Vector Classifier":
         viz_selector = st.selectbox(
             "Choose your visualization for {}: ".format(model),
-            ["Confusion Matrix"]
+            ["Test Accuracy Vs. Kernel", "Confusion Matrix"]
         )
         if viz_selector == "Confusion Matrix":
             c_mat = pd.crosstab(y_preds_svm, y_test, colnames= ['True'], rownames=['False'])
@@ -281,26 +330,82 @@ def return_visualization():
             )
             fig.update_xaxes(side = "top")
 
+            return st.plotly_chart(fig) 
+        elif viz_selector == "Test Accuracy Vs. Kernel":
+            svc_kern1 = SVC(kernel='linear')
+            svc_kern2 = SVC(kernel='poly')
+            svc_kern3 = SVC(kernel='rbf')
+            svc_kern4 = SVC(kernel='sigmoid')
+
+
+            fit_m1 = svc_kern1.fit(x_train, y_train)
+            fit_m2 = svc_kern2.fit(x_train, y_train)
+            fit_m3 = svc_kern3.fit(x_train, y_train)
+            fit_m4 = svc_kern4.fit(x_train, y_train)
+
+            data_for_chart = dict(
+                {
+                    'linear': svc_kern1.score(x_test, y_test),
+                    'poly': svc_kern2.score(x_test, y_test),
+                    'rbf': svc_kern3.score(x_test, y_test),
+                    'sigmoid': svc_kern4.score(x_test, y_test)
+                }
+            )
+            df = pd.DataFrame(data_for_chart, index=[0], columns= ['linear', 'poly', 'rbf', 'sigmoid'])
+            fig = pl.bar(df, x = ['linear', 'rbf', 'sigmoid', 'poly'], y = [svc_kern1.score(x_test, y_test), 
+            svc_kern3.score(x_test, y_test), svc_kern4.score(x_test, y_test), svc_kern2.score(x_test, y_test)], 
+            color=[svc_kern1.score(x_test, y_test), svc_kern3.score(x_test, y_test), svc_kern4.score(x_test, y_test), svc_kern2.score(x_test, y_test)],
+            labels={
+                'x':'Kernel Type',
+                'y': 'Accuray (estimator.score())'
+            })
+            fig.update_layout(title="Accuracy Score vs. Kernel Type")
             return st.plotly_chart(fig)
+
 
     if model == "Logistic Regression":
         viz_selector = st.selectbox(
             "Choose your visualization for {}: ".format(model),
-            ["Confusion Matrix"]
+            ["Confusion Matrix", "Test Accuracy vs. Optimization Algorithm Used"]
         )
-        c_mat = pd.crosstab(y_preds_log, y_test, rownames=["True"], colnames=["False"])
-        st.write(c_mat)
-        fig = plt.subplots(1, 1, figsize=[8, 6])
-        fig = pl.imshow(confusion_matrix(y_test, y_preds_log), labels=dict(x="Testing Data", y="Predicted Data"),
-                    x=['False', 'True'],
-                    y=['False', 'True']
-            )
-        fig.update_xaxes(side = "top")
-        return st.plotly_chart(fig)
+        if viz_selector == "Confusion Matrix":
+            c_mat = pd.crosstab(y_preds_log, y_test, rownames=["True"], colnames=["False"])
+            st.write(c_mat)
+            fig = plt.subplots(1, 1, figsize=[8, 6])
+            fig = pl.imshow(confusion_matrix(y_test, y_preds_log), labels=dict(x="Testing Data", y="Predicted Data"),
+                        x=['False', 'True'],
+                        y=['False', 'True']
+                )
+            fig.update_xaxes(side = "top")
+            return st.plotly_chart(fig)
+        elif viz_selector == "Test Accuracy vs. Optimization Algorithm Used":
+            log_lbfgs = LogisticRegression(solver='lbfgs')
+            fit_model1 = log_lbfgs.fit(x_train, y_train)
+
+            log_liblinear = LogisticRegression(solver='liblinear')
+            fit_model2 =  log_liblinear.fit(x_train, y_train)
+            
+            log_sag = LogisticRegression(solver='sag')
+            fit_model3 = log_sag.fit(x_train, y_train)
+
+            log_saga = LogisticRegression(solver='saga')
+            fit_model4 = log_saga.fit(x_train, y_train)
+
+            data_for_chart = dict({
+                    "lbfgs": fit_model1.score(x_test, y_test),
+                    'liblinear' : fit_model2.score(x_test, y_test),
+                    'sag' : fit_model3.score(x_test, y_test),
+                    'saga' : fit_model4.score(x_test, y_test)
+
+                })
+            df = pd.DataFrame(data_for_chart, index=[0])
+            fig = pl.bar(df, x = ['lbfgs', 'liblinear', 'sag', 'saga'], y = [fit_model1.score(x_test, y_test), fit_model2.score(x_test, y_test), fit_model3.score(x_test, y_test), fit_model4.score(x_test, y_test)], color = [fit_model1.score(x_test, y_test), fit_model2.score(x_test, y_test), fit_model3.score(x_test, y_test), fit_model4.score(x_test, y_test)])
+            return st.plotly_chart(fig)
+            
     if model == "Decision Tree":
         viz_selector = st.selectbox(
             "Choose your visualization for {}: ".format(model),
-            ["Confusion Matrix"]
+            ["Accuracy vs. Function", "Confusion Matrix"]
         )
         if viz_selector == "Confusion Matrix":
             c_mat = pd.crosstab(y_preds_dt, y_test, rownames=['True'], colnames=['False'])
@@ -312,7 +417,32 @@ def return_visualization():
                     y=['False', 'True']
             )
             fig.update_xaxes(side = "top")
-        return st.plotly_chart(fig)
+            return st.plotly_chart(fig)
+        elif viz_selector == "Accuracy vs. Function":
+            dt_gini = DecisionTreeClassifier(criterion='gini')
+            dt_gini.fit(x_train, y_train)
+            score_gini = dt_gini.score(x_test, y_test)
+
+            dt_entropy = DecisionTreeClassifier(criterion='entropy')
+            dt_entropy.fit(x_train, y_train)
+            score_entropy = dt_entropy.score(x_test, y_test)
+
+            data_for_chart = dict(
+                {
+                    'gini': score_gini,
+                    'entropy': score_entropy
+                }
+            )
+            df = pd.DataFrame(data_for_chart, index=[0], columns= ['gini', 'entropy'])
+            fig = pl.bar(df, x = ['gini', 'entropy'], y = [score_gini, score_entropy], 
+            color=[score_gini, score_entropy],
+            labels={
+                'x':'Function Type',
+                'y': 'Accuray (estimator.score())'
+            })
+            fig.update_layout(title="Function Type vs. Accuracy")
+            return st.plotly_chart(fig)
+
 return_visualization()
 
 st.header("**Part 3. Input your own data and check out the results:**")
@@ -335,7 +465,7 @@ hour_timeframe = st.selectbox(
 st.subheader("Now, select your model:")
 model_selector = st.selectbox(
     "Model Selector:",
-    ["K-Nearest Neighbors", "Support Vector Machine", "Decision Tree", "Logistic Regression"]
+    ["K-Nearest Neighbors", "Support Vector Classifier", "Decision Tree", "Logistic Regression"]
 )
 def hourConverterTwo(timeframe, hour):
     if timeframe == "PM":
