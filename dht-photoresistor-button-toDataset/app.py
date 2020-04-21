@@ -112,11 +112,11 @@ x_train, x_test, y_train, y_test = train_test_split(x, y, test_size = .3, random
 
 st.subheader("First, Choose Your Model: ")
 model = st.selectbox(
-    "choose your model:",
+    "Model Selection:",
     ["K-Nearest Neighbors", "Support Vector Classifier", "Decision Tree", "Logistic Regression"]
     )
 st.subheader("Second, Choose Your Parameters:")
-st.text("If you need help, after selecting your model click here: ")
+st.text("If you need help, click here: ")
 if st.button("Run a Grid Search"):
     if model == "K-Nearest Neighbors":
         param_grid = {
@@ -133,7 +133,7 @@ if st.button("Run a Grid Search"):
     elif model == "Support Vector Classifier":
         param_grid = {
             'kernel':['linear', 'poly', 'rbf', 'sigmoid'],
-            'degree': [2, 4, 6, 8],
+            'degree': [2, 3, 4],
             'gamma': ['scale', 'auto']
 
         }
@@ -196,7 +196,7 @@ if model == "K-Nearest Neighbors":
 elif model == "Support Vector Classifier":
     deg = st.selectbox(
         "Degree of Polynomial: ",
-        ["2","3", "4", "5", "6"]
+        ["2","3", "4"]
     )
     gam = st.selectbox(
         "Gamma, the Kernel Coefficient",
@@ -276,6 +276,11 @@ else:
 
 st.subheader("Lastly, choose the visualizations to build:")
 
+class VizBuilder:
+    def __init__(self):
+        super().__init__()
+
+# @st.cache(suppress_st_warning=True, show_spinner=True, hash_funcs={streamlit.DeltaGenerator.DeltaGenerator: lambda _: None})
 def return_visualization():
     if model == "K-Nearest Neighbors":
         viz_selector = st.selectbox(
@@ -321,7 +326,7 @@ def return_visualization():
             ["Test Accuracy Vs. Kernel", "Confusion Matrix"]
         )
         if viz_selector == "Confusion Matrix":
-            c_mat = pd.crosstab(y_preds_svm, y_test, colnames= ['True'], rownames=['False'])
+            c_mat = pd.crosstab(y_preds_svm, y_test, colnames= ['False'], rownames=['True'])
             st.write(c_mat)
             fig = pl.imshow(c_mat, 
             labels=dict(x="Testing Data", y="Predicted Data"),
@@ -366,13 +371,13 @@ def return_visualization():
     if model == "Logistic Regression":
         viz_selector = st.selectbox(
             "Choose your visualization for {}: ".format(model),
-            ["Confusion Matrix", "Test Accuracy vs. Optimization Algorithm Used"]
+            ["Test Accuracy vs. Optimization Algorithm Used", "Confusion Matrix"]
         )
         if viz_selector == "Confusion Matrix":
             c_mat = pd.crosstab(y_preds_log, y_test, rownames=["True"], colnames=["False"])
             st.write(c_mat)
             fig = plt.subplots(1, 1, figsize=[8, 6])
-            fig = pl.imshow(confusion_matrix(y_test, y_preds_log), labels=dict(x="Testing Data", y="Predicted Data"),
+            fig = pl.imshow(confusion_matrix(y_preds_log, y_test), labels=dict(x="Testing Data", y="Predicted Data"),
                         x=['False', 'True'],
                         y=['False', 'True']
                 )
@@ -473,4 +478,28 @@ def hourConverterTwo(timeframe, hour):
         return int(final_time)
     else:
         return int(hour)
-st.write(hourConverterTwo(str(hour_timeframe), hour_num))
+
+hour_val = [0 if i!= hourConverterTwo(hour_timeframe, hour_num) else 1 for i in range(1, 25)]
+
+input_data_array = np.array([float(photo_val), float(temp_val), float(humid_val)]+[i for i in hour_val])
+
+if model_selector == "K-Nearest Neighbors":
+    knn_clf = KNeighborsClassifier(algorithm='auto', n_neighbors=5, weights='distance', n_jobs=-1)
+    knn_clf.fit(x_train, y_train)
+    preds = knn_clf.predict(input_data_array.reshape(1, -1))
+    st.write(preds)
+elif model_selector == "Support Vector Classifier":
+    svc_clf = SVC(degree=4, gamma='scale', kernel='poly')
+    svc_clf.fit(x_train, y_train)
+    preds = svc_clf.predict(input_data_array.reshape(1, -1))
+    st.write(preds)
+elif model_selector=="Decision Tree":
+    dt_clf = DecisionTreeClassifier(criterion='entropy', max_features='log2', splitter='random')
+    dt_clf.fit(x_train, y_train)
+    preds = dt_clf.predict(input_data_array.reshape(1, -1))
+    st.write(preds)
+elif model == "Logistic Regression":
+    log_clf = LogisticRegression(penalty='l1', max_iter=150, solver='saga', warm_start=0, n_jobs=-1)
+    log_clf.fit(x_train, y_train)
+    preds = log_clf.predict(input_data_array.reshape(1, -1))
+    st.write(preds)
