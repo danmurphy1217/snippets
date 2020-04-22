@@ -14,6 +14,7 @@ from plotly.subplots import make_subplots
 from sklearn.metrics import confusion_matrix
 import matplotlib.pyplot as plt
 import webbrowser
+import time
 
 st.title("Machine Learning Models predicting on self-collected data")
 url = "https://docs.google.com/spreadsheets/d/1F-UPZf3je1x4M8ryp34OCe29E-CagCrUn9mFzsyfmJE/edit?usp=sharing"
@@ -117,8 +118,10 @@ model = st.selectbox(
     )
 st.subheader("Second, Choose Your Parameters:")
 st.text("If you need help, click here: ")
-if st.button("Run a Grid Search"):
-    if model == "K-Nearest Neighbors":
+
+# @st.cache(show_spinner=True, suppress_st_warning=True, hash_funcs={st.DeltaGenerator.DeltaGenerator: lambda _ : None})
+def run_grid_search(model_name):
+    if model_name == "K-Nearest Neighbors":
         param_grid = {
             "n_neighbors" : [5, 10, 15],
             "weights" : ['uniform', 'distance'],
@@ -128,9 +131,9 @@ if st.button("Run a Grid Search"):
         gs_KNN.fit(x_train, y_train)
         best_parameters = gs_KNN.best_params_
         st.write("The parameters that lead to the highest accuracy are: ")
-        st.table(pd.DataFrame(best_parameters, index=[0]))
+        return st.table(pd.DataFrame(best_parameters, index=[0]))
 
-    elif model == "Support Vector Classifier":
+    elif model_name == "Support Vector Classifier":
         param_grid = {
             'kernel':['linear', 'poly', 'rbf', 'sigmoid'],
             'degree': [2, 3, 4],
@@ -141,9 +144,9 @@ if st.button("Run a Grid Search"):
         gs_SVC.fit(x_train, y_train)
         best_parameters = gs_SVC.best_params_
         st.write("The parameters that lead to the highest accuracy are: ")
-        st.table(pd.DataFrame(best_parameters, index=[0]))
+        return st.table(pd.DataFrame(best_parameters, index=[0]))
 
-    elif model == "Decision Tree":
+    elif model_name == "Decision Tree":
         param_grid = {
             'criterion':['gini', 'entropy'],
             'splitter':['best', 'random'],
@@ -153,22 +156,25 @@ if st.button("Run a Grid Search"):
         gs_DT.fit(x_train, y_train)
         best_parameters = gs_DT.best_params_
         st.write("The parameters that lead to the highest accuracy are: ")
-        st.table(pd.DataFrame(best_parameters, index=[0]))
+        return st.table(pd.DataFrame(best_parameters, index=[0]))
 
-    elif model == "Logistic Regression":
+    elif model_name == "Logistic Regression":
         param_grid = {
             'penalty':['l1', 'l2'],
             'solver':['lbfgs', 'liblinear', 'sag', 'saga'],
-            'warm_start':["False", "True"],
-            'max_iter':[50, 100, 150, 200]
+            'max_iter':[100, 150]
 
         }
         gs_LOG = GridSearchCV(estimator = LogisticRegression(), param_grid=param_grid, scoring='accuracy')
         gs_LOG.fit(x_train, y_train)
         best_parameters = gs_LOG.best_params_
         st.write("The parameters that lead to the highest accuracy are: ")
-        st.table(pd.DataFrame(best_parameters, index=[0]))
+        return st.table(pd.DataFrame(best_parameters, index=[0]))
 
+
+
+if st.button("Run a Grid Search"):
+   run_grid_search(model)
 
 if model == "K-Nearest Neighbors":
     algo = st.selectbox(
@@ -254,11 +260,8 @@ elif model == "Logistic Regression":
         "Algorithm to use in the optimization",
         ["lbfgs", "liblinear", "sag", "saga"]
     )
-    warm = st.selectbox(
-        "Warm Start (true -> reuse solution of the previous call to fit as initialization)",
-        ["True", "False"]
-    )
-    log_clf = LogisticRegression(penalty=pen, random_state=42, solver= sol, warm_start=warm, n_jobs=-1, max_iter = iters)
+
+    log_clf = LogisticRegression(penalty=pen, random_state=42, solver= sol, n_jobs=-1, max_iter = iters)
     log_clf.fit(x_train, y_train)
     y_preds_log = log_clf.predict(x_test)
     results = pd.DataFrame(
@@ -276,16 +279,12 @@ else:
 
 st.subheader("Lastly, choose the visualizations to build:")
 
-class VizBuilder:
-    def __init__(self):
-        super().__init__()
 
-# @st.cache(suppress_st_warning=True, show_spinner=True, hash_funcs={streamlit.DeltaGenerator.DeltaGenerator: lambda _: None})
 def return_visualization():
     if model == "K-Nearest Neighbors":
         viz_selector = st.selectbox(
             "Choose your visualization:",
-            ["Test Accuracy Vs. # of Neighbors", "Confusion Matrix"]
+            ["Confusion Matrix", "Test Accuracy Vs. # of Neighbors"]
         )
         # if viz_selector == "Boxplot":
         #     fig, ([ax1, ax2], [ax3, ax4]) = plt.subplots(2, 2, figsize=[8, 6])
@@ -302,7 +301,7 @@ def return_visualization():
             )
             accuracy_scores = []
             for i in num_neighbors:
-                knn_clf2 = KNeighborsClassifier(n_neighbors=i, algorithm=algo, n_jobs=-1, weights=w)
+                knn_clf2 = KNeighborsClassifier(n_neighbors=i, n_jobs=-1)
                 knn_clf2.fit(x_train, y_train)
                 preds = knn_clf2.predict(x_test)
                 score = knn_clf2.score(x_test, y_test)
@@ -323,7 +322,7 @@ def return_visualization():
     if model == "Support Vector Classifier":
         viz_selector = st.selectbox(
             "Choose your visualization for {}: ".format(model),
-            ["Test Accuracy Vs. Kernel", "Confusion Matrix"]
+            ["Confusion Matrix", "Test Accuracy Vs. Kernel",]
         )
         if viz_selector == "Confusion Matrix":
             c_mat = pd.crosstab(y_preds_svm, y_test, colnames= ['False'], rownames=['True'])
@@ -371,7 +370,7 @@ def return_visualization():
     if model == "Logistic Regression":
         viz_selector = st.selectbox(
             "Choose your visualization for {}: ".format(model),
-            ["Test Accuracy vs. Optimization Algorithm Used", "Confusion Matrix"]
+            ["Confusion Matrix", "Test Accuracy vs. Optimization Algorithm Used"]
         )
         if viz_selector == "Confusion Matrix":
             c_mat = pd.crosstab(y_preds_log, y_test, rownames=["True"], colnames=["False"])
@@ -410,7 +409,7 @@ def return_visualization():
     if model == "Decision Tree":
         viz_selector = st.selectbox(
             "Choose your visualization for {}: ".format(model),
-            ["Accuracy vs. Function", "Confusion Matrix"]
+            ["Confusion Matrix", "Accuracy vs. Function"]
         )
         if viz_selector == "Confusion Matrix":
             c_mat = pd.crosstab(y_preds_dt, y_test, rownames=['True'], colnames=['False'])
@@ -449,7 +448,6 @@ def return_visualization():
             return st.plotly_chart(fig)
 
 return_visualization()
-
 st.header("**Part 3. Input your own data and check out the results:**")
 st.write("It is recommended you look at the values in the cleaned dataframe to aid in helping you select your inputs.")
 
@@ -479,27 +477,34 @@ def hourConverterTwo(timeframe, hour):
     else:
         return int(hour)
 
-hour_val = [0 if i!= hourConverterTwo(hour_timeframe, hour_num) else 1 for i in range(1, 25)]
+@st.cache(show_spinner=True)
+def transform_user_input(photo, temp, humidity, hour):
+    hour_val = [0 if i!= hourConverterTwo(hour_timeframe, hour_num) else 1 for i in range(1, 25)]
+    input_data_array = np.array([float(photo_val), float(temp_val), float(humid_val)]+[i for i in hour_val])
+    return input_data_array
 
-input_data_array = np.array([float(photo_val), float(temp_val), float(humid_val)]+[i for i in hour_val])
+confirmation_button = st.button("Run Model and Predict")
 
-if model_selector == "K-Nearest Neighbors":
-    knn_clf = KNeighborsClassifier(algorithm='auto', n_neighbors=5, weights='distance', n_jobs=-1)
-    knn_clf.fit(x_train, y_train)
-    preds = knn_clf.predict(input_data_array.reshape(1, -1))
-    st.write(preds)
-elif model_selector == "Support Vector Classifier":
-    svc_clf = SVC(degree=4, gamma='scale', kernel='poly')
-    svc_clf.fit(x_train, y_train)
-    preds = svc_clf.predict(input_data_array.reshape(1, -1))
-    st.write(preds)
-elif model_selector=="Decision Tree":
-    dt_clf = DecisionTreeClassifier(criterion='entropy', max_features='log2', splitter='random')
-    dt_clf.fit(x_train, y_train)
-    preds = dt_clf.predict(input_data_array.reshape(1, -1))
-    st.write(preds)
-elif model == "Logistic Regression":
-    log_clf = LogisticRegression(penalty='l1', max_iter=150, solver='saga', warm_start=0, n_jobs=-1)
-    log_clf.fit(x_train, y_train)
-    preds = log_clf.predict(input_data_array.reshape(1, -1))
-    st.write(preds)
+@st.cache(show_spinner=True, hash_funcs={st.DeltaGenerator.DeltaGenerator: lambda _: None})
+def buildModel(model_name, input_data):
+    if model_name == "K-Nearest Neighbors":
+        knn_clf = KNeighborsClassifier(algorithm='auto', n_neighbors=5, weights='distance', n_jobs=-1)
+        knn_clf.fit(x_train, y_train)
+        preds = knn_clf.predict(input_data.reshape(1, -1))
+    elif model_name == "Support Vector Classifier":
+        svc_clf = SVC(degree=4, gamma='scale', kernel='poly')
+        svc_clf.fit(x_train, y_train)
+        preds = svc_clf.predict(input_data.reshape(1, -1))
+        
+    elif model_name=="Decision Tree":
+        dt_clf = DecisionTreeClassifier(criterion='entropy', max_features='log2', splitter='random')
+        dt_clf.fit(x_train, y_train)
+        preds = dt_clf.predict(input_data.reshape(1, -1))
+    elif model_name == "Logistic Regression":
+        log_clf = LogisticRegression(penalty='l1', max_iter=150, solver='saga', warm_start=0, n_jobs=-1)
+        log_clf.fit(x_train, y_train)
+        preds = log_clf.predict(input_data.reshape(1, -1))
+    return st.dataframe(preds)
+if confirmation_button:
+    buildModel(model_selector, transform_user_input(photo= photo_val, temp=temp_val, humidity= humid_val, hour=hour_num))
+
