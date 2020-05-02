@@ -8,5 +8,5 @@ diagram include pinouts at the very top of the .ino file.
 
 
 
-The final app for the dht, photoresistor, and digital button dataset is hosted here: https://dmurphy-classification-models.herokuapp.com/
+The final app for the dht, photoresistor, and digital button dataset is hosted here: https://dmurphy-classification-models.herokuapp.com/ </br>
 Final code for the heroku app is here: https://github.com/danmurphy1217/heroku-classification-models
